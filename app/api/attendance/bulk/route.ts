@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma, AttendanceStatus } from "@prisma/client";
 
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     const endOfDay = new Date(`${dateStr}T23:59:59.999Z`);
 
     // 1. Fetch Students
-    const studentsWhere: any = { isActive: true };
+    const studentsWhere: Prisma.StudentWhereInput = { isActive: true };
     if (courseId) {
       studentsWhere.enrollments = { some: { courseId, isActive: true } };
     }
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     });
 
     // 2. Fetch Today's Attendances
-    const attendanceWhere: any = {
+    const attendanceWhere: Prisma.AttendanceWhereInput = {
       date: { gte: startOfDay, lte: endOfDay },
     };
     if (courseId) {
