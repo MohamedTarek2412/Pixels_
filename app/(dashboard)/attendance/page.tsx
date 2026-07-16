@@ -21,7 +21,7 @@ type StudentBulk = {
   enrollmentInfo: EnrollmentInfo[];
 };
 
-// نوع البيانات المسترجعة من API /api/attendance/bulk
+// نوع البيانات التي يعيدها API
 type BulkDataResponse = { data: StudentBulk[] };
 
 const STATUS_OPTIONS = [
@@ -123,11 +123,14 @@ export default function AttendancePage() {
     },
     onMutate: async ({ studentId, status }) => {
       await queryClient.cancelQueries({ queryKey: ["attendance-bulk", date, courseId] });
+
+      // حفظ البيانات السابقة للرجوع إليها في حال الخطأ
       const previousData = queryClient.getQueryData<BulkDataResponse>(["attendance-bulk", date, courseId]);
 
+      // تحديث الكاش محلياً مع تحديد النوع صراحة
       queryClient.setQueryData<BulkDataResponse>(
         ["attendance-bulk", date, courseId],
-        (old) => {
+        (old: BulkDataResponse | undefined) => {
           if (!old) return old;
           return {
             ...old,
@@ -147,6 +150,7 @@ export default function AttendancePage() {
           };
         }
       );
+
       return { previousData };
     },
     onError: (_err, _vars, context) => {
