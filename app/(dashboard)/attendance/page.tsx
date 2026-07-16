@@ -21,6 +21,9 @@ type StudentBulk = {
   enrollmentInfo: EnrollmentInfo[];
 };
 
+// نوع البيانات المسترجعة من API /api/attendance/bulk
+type BulkDataResponse = { data: StudentBulk[] };
+
 const STATUS_OPTIONS = [
   { value: "PRESENT", label: "حاضر", icon: Check, color: "bg-success-light text-success border-success" },
   { value: "ABSENT", label: "غايب", icon: X, color: "bg-danger-light text-danger border-danger" },
@@ -35,7 +38,6 @@ async function fetchJSON<T>(url: string): Promise<T> {
 }
 
 function SessionProgress({ info, courseId }: { info: EnrollmentInfo[]; courseId: string }) {
-  // If filtering by course, show that course only; otherwise show all
   const filtered = courseId
     ? info.filter((e) => e.courseId === courseId)
     : info;
@@ -105,7 +107,7 @@ export default function AttendancePage() {
       const url = new URL("/api/attendance/bulk", window.location.origin);
       url.searchParams.set("date", date);
       if (courseId) url.searchParams.set("courseId", courseId);
-      return fetchJSON<{ data: StudentBulk[] }>(url.toString());
+      return fetchJSON<BulkDataResponse>(url.toString());
     },
   });
 
@@ -121,27 +123,30 @@ export default function AttendancePage() {
     },
     onMutate: async ({ studentId, status }) => {
       await queryClient.cancelQueries({ queryKey: ["attendance-bulk", date, courseId] });
-      const previousData = queryClient.getQueryData(["attendance-bulk", date, courseId]);
+      const previousData = queryClient.getQueryData<BulkDataResponse>(["attendance-bulk", date, courseId]);
 
-      queryClient.setQueryData(["attendance-bulk", date, courseId], (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          data: old.data.map((student: StudentBulk) => {
-            if (student.id !== studentId) return student;
-            const existingIndex = student.attendances.findIndex(
-              (a) => !courseId || a.courseId === courseId
-            );
-            const newAttendances = [...student.attendances];
-            if (existingIndex >= 0) {
-              newAttendances[existingIndex] = { ...newAttendances[existingIndex], status };
-            } else {
-              newAttendances.push({ id: "temp-id", studentId, status, courseId: courseId || null });
-            }
-            return { ...student, attendances: newAttendances };
-          }),
-        };
-      });
+      queryClient.setQueryData<BulkDataResponse>(
+        ["attendance-bulk", date, courseId],
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            data: old.data.map((student: StudentBulk) => {
+              if (student.id !== studentId) return student;
+              const existingIndex = student.attendances.findIndex(
+                (a) => !courseId || a.courseId === courseId
+              );
+              const newAttendances = [...student.attendances];
+              if (existingIndex >= 0) {
+                newAttendances[existingIndex] = { ...newAttendances[existingIndex], status };
+              } else {
+                newAttendances.push({ id: "temp-id", studentId, status, courseId: courseId || null });
+              }
+              return { ...student, attendances: newAttendances };
+            }),
+          };
+        }
+      );
       return { previousData };
     },
     onError: (_err, _vars, context) => {
@@ -207,7 +212,6 @@ export default function AttendancePage() {
               (a) => !courseId || a.courseId === courseId
             )?.status;
 
-            // Check if student needs renewal for the selected course
             const needsRenewal = courseId
               ? (student.enrollmentInfo ?? []).find((e) => e.courseId === courseId)?.needsRenewal
               : (student.enrollmentInfo ?? []).some((e) => e.needsRenewal);
@@ -238,7 +242,6 @@ export default function AttendancePage() {
                     </div>
                   )}
 
-                  {/* Session Progress */}
                   <SessionProgress info={student.enrollmentInfo ?? []} courseId={courseId} />
                 </div>
 
