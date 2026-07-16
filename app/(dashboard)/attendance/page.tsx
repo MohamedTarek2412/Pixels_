@@ -133,7 +133,7 @@ export default function AttendancePage() {
 
       const previousData = queryClient.getQueryData<BulkDataResponse>(["attendance-bulk", date, courseId]);
 
-      queryClient.setQueryData(["attendance-bulk", date, courseId], (old: any) => {
+      queryClient.setQueryData<BulkDataResponse>(["attendance-bulk", date, courseId], (old) => {
         if (!old) return old;
         return {
           ...old,
