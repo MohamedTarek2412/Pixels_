@@ -123,7 +123,7 @@ export default function AttendancePage() {
       await queryClient.cancelQueries({ queryKey: ["attendance-bulk", date, courseId] });
       const previousData = queryClient.getQueryData(["attendance-bulk", date, courseId]);
 
-      queryClient.setQueryData(["attendance-bulk", date, courseId], (old: any) => {
+      queryClient.setQueryData(["attendance-bulk", date, courseId], (old?: { data: StudentBulk[] }) => {
         if (!old) return old;
         return {
           ...old,
