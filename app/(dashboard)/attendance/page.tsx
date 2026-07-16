@@ -21,6 +21,14 @@ type StudentBulk = {
   enrollmentInfo: EnrollmentInfo[];
 };
 
+// نوع البيانات المسترجعة من API
+type BulkDataResponse = { data: StudentBulk[] };
+
+// نوع المتغيرات المستخدمة في mutation
+type MarkAttendanceVariables = { studentId: string; status: string };
+// نوع السياق الخاص بـ onMutate
+type MarkAttendanceContext = { previousData: BulkDataResponse | undefined };
+
 const STATUS_OPTIONS = [
   { value: "PRESENT", label: "حاضر", icon: Check, color: "bg-success-light text-success border-success" },
   { value: "ABSENT", label: "غايب", icon: X, color: "bg-danger-light text-danger border-danger" },
@@ -35,11 +43,7 @@ async function fetchJSON<T>(url: string): Promise<T> {
 }
 
 function SessionProgress({ info, courseId }: { info: EnrollmentInfo[]; courseId: string }) {
-  // If filtering by course, show that course only; otherwise show all
-  const filtered = courseId
-    ? info.filter((e) => e.courseId === courseId)
-    : info;
-
+  const filtered = courseId ? info.filter((e) => e.courseId === courseId) : info;
   if (filtered.length === 0) return null;
 
   return (
@@ -105,12 +109,17 @@ export default function AttendancePage() {
       const url = new URL("/api/attendance/bulk", window.location.origin);
       url.searchParams.set("date", date);
       if (courseId) url.searchParams.set("courseId", courseId);
-      return fetchJSON<{ data: StudentBulk[] }>(url.toString());
+      return fetchJSON<BulkDataResponse>(url.toString());
     },
   });
 
-  const markMutation = useMutation({
-    mutationFn: async ({ studentId, status }: { studentId: string; status: string }) => {
+  const markMutation = useMutation<
+    unknown, // نوع القيمة المعادة (لا نستخدمها)
+    Error,   // نوع الخطأ
+    MarkAttendanceVariables,
+    MarkAttendanceContext
+  >({
+    mutationFn: async ({ studentId, status }) => {
       const res = await fetch("/api/attendance/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -121,9 +130,10 @@ export default function AttendancePage() {
     },
     onMutate: async ({ studentId, status }) => {
       await queryClient.cancelQueries({ queryKey: ["attendance-bulk", date, courseId] });
-      const previousData = queryClient.getQueryData(["attendance-bulk", date, courseId]);
 
-      queryClient.setQueryData(["attendance-bulk", date, courseId], (old?: { data: StudentBulk[] }) => {
+      const previousData = queryClient.getQueryData<BulkDataResponse>(["attendance-bulk", date, courseId]);
+
+      queryClient.setQueryData(["attendance-bulk", date, courseId], (old: any) => {
         if (!old) return old;
         return {
           ...old,
@@ -144,10 +154,11 @@ export default function AttendancePage() {
       });
       return { previousData };
     },
-    onError: (_err, _vars, context) => {
+    onError: (err: Error, _vars: MarkAttendanceVariables, context: MarkAttendanceContext | undefined) => {
       if (context?.previousData) {
         queryClient.setQueryData(["attendance-bulk", date, courseId], context.previousData);
       }
+      console.error("Error saving attendance:", err);
       alert("حدث خطأ أثناء الحفظ. يرجى المحاولة مرة أخرى.");
     },
     onSettled: () => {
@@ -207,7 +218,6 @@ export default function AttendancePage() {
               (a) => !courseId || a.courseId === courseId
             )?.status;
 
-            // Check if student needs renewal for the selected course
             const needsRenewal = courseId
               ? (student.enrollmentInfo ?? []).find((e) => e.courseId === courseId)?.needsRenewal
               : (student.enrollmentInfo ?? []).some((e) => e.needsRenewal);
@@ -238,7 +248,6 @@ export default function AttendancePage() {
                     </div>
                   )}
 
-                  {/* Session Progress */}
                   <SessionProgress info={student.enrollmentInfo ?? []} courseId={courseId} />
                 </div>
 
