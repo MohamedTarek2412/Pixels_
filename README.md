@@ -11,6 +11,29 @@
 - TanStack Query
 - JWT auth (كوكيز httpOnly) + RBAC
 
+## نشر المشروع على Vercel
+
+### المتغيرات المطلوبة
+في Vercel → Project Settings → Environment Variables أضف:
+
+```bash
+DATABASE_URL="postgresql://user:pass@host/db?sslmode=require"
+DIRECT_URL="postgresql://user:pass@host/db?sslmode=require"
+JWT_SECRET="strong-random-secret"
+NODE_ENV="production"
+```
+
+### إعدادات الـ Build
+- Framework Preset: `Next.js`
+- Build Command: `npm run build`
+- Install Command: `npm install`
+- Output Directory: `.next`
+
+### ملاحظات مهمة
+- تأكد إن الـ database متاح في production.
+- بعد النشر، شغّل `npm run db:push` أو أضفها في Post-Deploy command.
+- لو ظهر warning عن lockfile، الملف [next.config.ts](next.config.ts) تم تجهيزـه لتحديد root تلقائياً.
+
 ## خطوات التشغيل
 
 ### 1. قاعدة البيانات
