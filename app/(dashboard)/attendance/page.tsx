@@ -21,8 +21,13 @@ type StudentBulk = {
   enrollmentInfo: EnrollmentInfo[];
 };
 
-// نوع البيانات التي يعيدها API
+// نوع البيانات المسترجعة من API
 type BulkDataResponse = { data: StudentBulk[] };
+
+// نوع المتغيرات المستخدمة في mutation
+type MarkAttendanceVariables = { studentId: string; status: string };
+// نوع السياق الخاص بـ onMutate
+type MarkAttendanceContext = { previousData: BulkDataResponse | undefined };
 
 const STATUS_OPTIONS = [
   { value: "PRESENT", label: "حاضر", icon: Check, color: "bg-success-light text-success border-success" },
@@ -38,10 +43,7 @@ async function fetchJSON<T>(url: string): Promise<T> {
 }
 
 function SessionProgress({ info, courseId }: { info: EnrollmentInfo[]; courseId: string }) {
-  const filtered = courseId
-    ? info.filter((e) => e.courseId === courseId)
-    : info;
-
+  const filtered = courseId ? info.filter((e) => e.courseId === courseId) : info;
   if (filtered.length === 0) return null;
 
   return (
@@ -111,8 +113,13 @@ export default function AttendancePage() {
     },
   });
 
-  const markMutation = useMutation({
-    mutationFn: async ({ studentId, status }: { studentId: string; status: string }) => {
+  const markMutation = useMutation<
+    unknown, // نوع القيمة المعادة (لا نستخدمها)
+    Error,   // نوع الخطأ
+    MarkAttendanceVariables,
+    MarkAttendanceContext
+  >({
+    mutationFn: async ({ studentId, status }) => {
       const res = await fetch("/api/attendance/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -124,17 +131,15 @@ export default function AttendancePage() {
     onMutate: async ({ studentId, status }) => {
       await queryClient.cancelQueries({ queryKey: ["attendance-bulk", date, courseId] });
 
-      // حفظ البيانات السابقة للرجوع إليها في حال الخطأ
       const previousData = queryClient.getQueryData<BulkDataResponse>(["attendance-bulk", date, courseId]);
 
-      // تحديث الكاش محلياً مع تحديد النوع صراحة
       queryClient.setQueryData<BulkDataResponse>(
         ["attendance-bulk", date, courseId],
-        (old: BulkDataResponse | undefined) => {
+        (old) => {
           if (!old) return old;
           return {
             ...old,
-            data: old.data.map((student: StudentBulk) => {
+            data: old.data.map((student) => {
               if (student.id !== studentId) return student;
               const existingIndex = student.attendances.findIndex(
                 (a) => !courseId || a.courseId === courseId
@@ -153,10 +158,11 @@ export default function AttendancePage() {
 
       return { previousData };
     },
-    onError: (_err, _vars, context) => {
+    onError: (err: Error, _vars: MarkAttendanceVariables, context: MarkAttendanceContext | undefined) => {
       if (context?.previousData) {
         queryClient.setQueryData(["attendance-bulk", date, courseId], context.previousData);
       }
+      console.error("Error saving attendance:", err);
       alert("حدث خطأ أثناء الحفظ. يرجى المحاولة مرة أخرى.");
     },
     onSettled: () => {
