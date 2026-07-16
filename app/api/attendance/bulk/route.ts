@@ -1,12 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import { Prisma, AttendanceStatus } from "@prisma/client";
 
-// نوع البيانات المستلمة في POST
+// نوع البيانات المستلمة في POST مع تحديد status كنوع AttendanceStatus
 type AttendancePostBody = {
   studentId: string;
   date: string;
-  status: string;
+  status: AttendanceStatus;  // <- التغيير هنا
   courseId?: string;
 };
 
@@ -23,13 +24,9 @@ export async function GET(req: NextRequest) {
     const startOfDay = new Date(`${dateStr}T00:00:00.000Z`);
     const endOfDay = new Date(`${dateStr}T23:59:59.999Z`);
 
-    const studentsWhere: Prisma.StudentWhereInput = {
-      isActive: true,
-    };
+    const studentsWhere: Prisma.StudentWhereInput = { isActive: true };
     if (courseId) {
-      studentsWhere.enrollments = {
-        some: { courseId, isActive: true },
-      };
+      studentsWhere.enrollments = { some: { courseId, isActive: true } };
     }
 
     const students = await prisma.student.findMany({
@@ -50,10 +47,7 @@ export async function GET(req: NextRequest) {
     });
 
     const attendanceWhere: Prisma.AttendanceWhereInput = {
-      date: {
-        gte: startOfDay,
-        lte: endOfDay,
-      },
+      date: { gte: startOfDay, lte: endOfDay },
     };
     if (courseId) {
       attendanceWhere.courseId = courseId;
@@ -61,12 +55,7 @@ export async function GET(req: NextRequest) {
 
     const todayAttendances = await prisma.attendance.findMany({
       where: attendanceWhere,
-      select: {
-        id: true,
-        studentId: true,
-        status: true,
-        courseId: true,
-      },
+      select: { id: true, studentId: true, status: true, courseId: true },
     });
 
     const studentIds = students.map((s) => s.id);
@@ -88,7 +77,6 @@ export async function GET(req: NextRequest) {
 
     const result = students.map((s) => {
       const studentAttendances = todayAttendances.filter((a) => a.studentId === s.id);
-
       const enrollmentInfo = s.enrollments.map((e) => {
         const cId = e.courseId;
         const attended = presentMap[s.id]?.[cId] ?? 0;
@@ -101,7 +89,6 @@ export async function GET(req: NextRequest) {
           needsRenewal: attended >= subscribed,
         };
       });
-
       return {
         id: s.id,
         fullName: s.fullName,
@@ -114,10 +101,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ data: result });
   } catch (error: unknown) {
     console.error("Bulk Attendance GET Error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch attendance" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to fetch attendance" }, { status: 500 });
   }
 }
 
@@ -140,17 +124,14 @@ export async function POST(req: NextRequest) {
       where: {
         studentId,
         courseId: courseId || null,
-        date: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
+        date: { gte: startOfDay, lte: endOfDay },
       },
     });
 
     if (existing) {
       const updated = await prisma.attendance.update({
         where: { id: existing.id },
-        data: { status },
+        data: { status }, // الآن status من النوع AttendanceStatus
       });
       return NextResponse.json(updated);
     } else {
@@ -159,16 +140,13 @@ export async function POST(req: NextRequest) {
           studentId,
           courseId: courseId || null,
           date: startOfDay,
-          status,
+          status, // نفس الشيء
         },
       });
       return NextResponse.json(created);
     }
   } catch (error: unknown) {
     console.error("Bulk Attendance POST Error:", error);
-    return NextResponse.json(
-      { error: "Failed to save attendance" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to save attendance" }, { status: 500 });
   }
 }
