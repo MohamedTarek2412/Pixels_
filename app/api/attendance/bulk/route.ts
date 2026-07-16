@@ -23,7 +23,6 @@ export async function GET(req: NextRequest) {
     const startOfDay = new Date(`${dateStr}T00:00:00.000Z`);
     const endOfDay = new Date(`${dateStr}T23:59:59.999Z`);
 
-    // 1. بناء شرط جلب الطلاب
     const studentsWhere: Prisma.StudentWhereInput = {
       isActive: true,
     };
@@ -50,7 +49,6 @@ export async function GET(req: NextRequest) {
       orderBy: { fullName: "asc" },
     });
 
-    // 2. جلب سجلات الحضور لهذا اليوم
     const attendanceWhere: Prisma.AttendanceWhereInput = {
       date: {
         gte: startOfDay,
@@ -71,7 +69,6 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // 3. حساب عدد مرات الحضور (PRESENT) لكل طالب في كل كورس
     const studentIds = students.map((s) => s.id);
     const presentCounts = await prisma.attendance.groupBy({
       by: ["studentId", "courseId"],
@@ -83,21 +80,19 @@ export async function GET(req: NextRequest) {
       _count: { id: true },
     });
 
-    // بناء خريطة: studentId -> courseId -> عدد الحضور
     const presentMap: Record<string, Record<string, number>> = {};
     for (const row of presentCounts) {
       if (!presentMap[row.studentId]) presentMap[row.studentId] = {};
       presentMap[row.studentId][row.courseId ?? "null"] = row._count.id;
     }
 
-    // 4. تجميع النتائج النهائية
     const result = students.map((s) => {
       const studentAttendances = todayAttendances.filter((a) => a.studentId === s.id);
 
       const enrollmentInfo = s.enrollments.map((e) => {
         const cId = e.courseId;
         const attended = presentMap[s.id]?.[cId] ?? 0;
-        const subscribed = e.subscribedSessions ?? 8; // القيمة الافتراضية 8
+        const subscribed = e.subscribedSessions ?? 8;
         return {
           courseId: cId,
           courseName: e.course.name,
@@ -117,7 +112,7 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json({ data: result });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Bulk Attendance GET Error:", error);
     return NextResponse.json(
       { error: "Failed to fetch attendance" },
@@ -129,7 +124,6 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body: AttendancePostBody = await req.json();
-
     const { studentId, date, status, courseId } = body;
 
     if (!studentId || !date || !status) {
@@ -170,7 +164,7 @@ export async function POST(req: NextRequest) {
       });
       return NextResponse.json(created);
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Bulk Attendance POST Error:", error);
     return NextResponse.json(
       { error: "Failed to save attendance" },
