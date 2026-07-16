@@ -1,10 +1,18 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 
-export async function GET(req: Request) {
+// نوع البيانات المستلمة في POST
+type AttendancePostBody = {
+  studentId: string;
+  date: string;
+  status: string;
+  courseId?: string;
+};
+
+export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
+    const searchParams = req.nextUrl.searchParams;
     const dateStr = searchParams.get("date");
     const courseId = searchParams.get("courseId");
 
@@ -15,10 +23,14 @@ export async function GET(req: Request) {
     const startOfDay = new Date(`${dateStr}T00:00:00.000Z`);
     const endOfDay = new Date(`${dateStr}T23:59:59.999Z`);
 
-    // 1. Fetch Students
-    const studentsWhere: Prisma.StudentWhereInput = {   isActive: true, };
+    // 1. بناء شرط جلب الطلاب
+    const studentsWhere: Prisma.StudentWhereInput = {
+      isActive: true,
+    };
     if (courseId) {
-      studentsWhere.enrollments = { some: { courseId, isActive: true } };
+      studentsWhere.enrollments = {
+        some: { courseId, isActive: true },
+      };
     }
 
     const students = await prisma.student.findMany({
@@ -38,13 +50,13 @@ export async function GET(req: Request) {
       orderBy: { fullName: "asc" },
     });
 
-    // 2. Fetch Today's Attendances
-   const attendanceWhere: Prisma.AttendanceWhereInput = {
-  date: {
-    gte: startOfDay,
-    lte: endOfDay,
-  },
-};
+    // 2. جلب سجلات الحضور لهذا اليوم
+    const attendanceWhere: Prisma.AttendanceWhereInput = {
+      date: {
+        gte: startOfDay,
+        lte: endOfDay,
+      },
+    };
     if (courseId) {
       attendanceWhere.courseId = courseId;
     }
@@ -59,8 +71,7 @@ export async function GET(req: Request) {
       },
     });
 
-    // 3. For each student, count their PRESENT sessions per course
-    // We need to count all PRESENT records (not just today) per course enrollment
+    // 3. حساب عدد مرات الحضور (PRESENT) لكل طالب في كل كورس
     const studentIds = students.map((s) => s.id);
     const presentCounts = await prisma.attendance.groupBy({
       by: ["studentId", "courseId"],
@@ -72,21 +83,21 @@ export async function GET(req: Request) {
       _count: { id: true },
     });
 
-    // Build a map: studentId -> courseId -> presentCount
+    // بناء خريطة: studentId -> courseId -> عدد الحضور
     const presentMap: Record<string, Record<string, number>> = {};
     for (const row of presentCounts) {
       if (!presentMap[row.studentId]) presentMap[row.studentId] = {};
       presentMap[row.studentId][row.courseId ?? "null"] = row._count.id;
     }
 
-    // 4. Map everything together
+    // 4. تجميع النتائج النهائية
     const result = students.map((s) => {
       const studentAttendances = todayAttendances.filter((a) => a.studentId === s.id);
 
       const enrollmentInfo = s.enrollments.map((e) => {
         const cId = e.courseId;
         const attended = presentMap[s.id]?.[cId] ?? 0;
-        const subscribed = e.subscribedSessions ?? 8; // default 8
+        const subscribed = e.subscribedSessions ?? 8; // القيمة الافتراضية 8
         return {
           courseId: cId,
           courseName: e.course.name,
@@ -108,16 +119,24 @@ export async function GET(req: Request) {
     return NextResponse.json({ data: result });
   } catch (error) {
     console.error("Bulk Attendance GET Error:", error);
-    return NextResponse.json({ error: "Failed to fetch attendance" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch attendance" },
+      { status: 500 }
+    );
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const { studentId, date, status, courseId } = await req.json();
+    const body: AttendancePostBody = await req.json();
+
+    const { studentId, date, status, courseId } = body;
 
     if (!studentId || !date || !status) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing required fields (studentId, date, status)" },
+        { status: 400 }
+      );
     }
 
     const startOfDay = new Date(`${date}T00:00:00.000Z`);
@@ -153,6 +172,9 @@ export async function POST(req: Request) {
     }
   } catch (error) {
     console.error("Bulk Attendance POST Error:", error);
-    return NextResponse.json({ error: "Failed to save attendance" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to save attendance" },
+      { status: 500 }
+    );
   }
 }
