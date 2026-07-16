@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 export async function GET(req: Request) {
   try {
@@ -15,7 +16,7 @@ export async function GET(req: Request) {
     const endOfDay = new Date(`${dateStr}T23:59:59.999Z`);
 
     // 1. Fetch Students
-    const studentsWhere: any = { isActive: true };
+    const studentsWhere: Prisma.StudentWhereInput = {   isActive: true, };
     if (courseId) {
       studentsWhere.enrollments = { some: { courseId, isActive: true } };
     }
@@ -38,9 +39,12 @@ export async function GET(req: Request) {
     });
 
     // 2. Fetch Today's Attendances
-    const attendanceWhere: any = {
-      date: { gte: startOfDay, lte: endOfDay },
-    };
+   const attendanceWhere: Prisma.AttendanceWhereInput = {
+  date: {
+    gte: startOfDay,
+    lte: endOfDay,
+  },
+};
     if (courseId) {
       attendanceWhere.courseId = courseId;
     }
