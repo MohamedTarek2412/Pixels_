@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+/* Pixels Juniors — لوحة ألوان مريحة للعين (بدون تباين أسود/أبيض حاد) */
+:root {
+  --background: #F6F8FB;       /* خلفية رمادية فاتحة مائلة للأزرق بدل الأبيض الناصع */
+  --foreground: #2B3445;       /* كحلي غامق ناعم بدل الأسود الكامل */
+  --surface: #FFFFFF;          /* خلفية الكروت والجداول */
+  --border: #E3E8F0;           /* حدود ناعمة */
+  --muted: #6B7488;            /* نص ثانوي */
+
+  --color-primary: #4F7CAC;        /* أزرق-تركواز هادئ - اللون الأساسي للماركة */
+  --color-primary-dark: #3D6690;   /* عند الـ hover */
+  --color-primary-light: #EAF1F8;  /* خلفيات فاتحة للعناصر النشطة */
+
+  --color-accent: #F2A65A;         /* برتقالي دافئ للتمييز (Pixels Juniors) */
+  --color-accent-dark: #DB8C3C;
+
+  --color-success: #4C9A6A;
+  --color-success-light: #E7F5EC;
+  --color-warning: #D9A441;
+  --color-warning-light: #FBF2E1;
+  --color-danger: #D96C6C;
+  --color-danger-light: #FBEAEA;
+  --color-info: #5B8FD9;
+  --color-info-light: #EAF1FB;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-primary: var(--color-primary);
+  --color-primary-dark: var(--color-primary-dark);
+  --color-primary-light: var(--color-primary-light);
+  --color-accent: var(--color-accent);
+  --color-accent-dark: var(--color-accent-dark);
+  --color-success: var(--color-success);
+  --color-success-light: var(--color-success-light);
+  --color-warning: var(--color-warning);
+  --color-warning-light: var(--color-warning-light);
+  --color-danger: var(--color-danger);
+  --color-danger-light: var(--color-danger-light);
+  --color-info: var(--color-info);
+  --color-info-light: var(--color-info-light);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* شريط تمرير أهدأ للعين */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
